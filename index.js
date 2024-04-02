@@ -48,36 +48,62 @@ const parseConfig = async () =>
     return YAML.load(await readConfig());
 }
 
+const getKOConfig = async (path) =>
+{
+    let config = await parseConfig();
+    let keys = path.split('.');
+    let lastKey = keys.pop();
+    let lastObj = keys.reduce((obj, key) => obj[key] = obj[key] || {}, config);
+
+    return {
+        config: config,
+        lastObj: lastObj,
+        lastKey: lastKey
+    };
+}
+
 const setNestedValue = async (path, value) =>
 {
     try {
-        let config = await parseConfig();
-        let keys = path.split('.');
-        let lastKey = keys.pop();
-        let lastObj = keys.reduce((obj, key) => obj[key] = obj[key] || {}, config);
+        let koConfig = await getKOConfig(path);
+        let lastKey = koConfig.lastKey;
+        let lastObj = koConfig.lastObj;
 
         lastObj[lastKey] = value;
-        await writeConfig(YAML.dump(config));
+        await writeConfig(YAML.dump(koConfig.config));
     } catch (err) {
         console.error('VBError: ' + err);
         return;
     }
 }
 
+const getNestedValue = async (path) =>
+{
+    try {
+        let koConfig = await getKOConfig(path);
+        let lastKey = koConfig.lastKey;
+        let lastObj = koConfig.lastObj;
+
+        return lastObj[lastKey];
+    } catch (err) {
+        console.error('VBError: ' + err);
+        return null;
+    }
+}
+
 const getNextServer = async (group) =>
 {
     try {
-        let nested = `groups.${group}.server-choosing`;
-        let config = await parseConfig();
-        let servers = config.groups[group].servers;
-        let serverChoosing = config.groups[group]['server-choosing'];
+        let nestedServerChoosing = `groups.${group}.server-choosing`;
+        let servers = await getNestedValue(`groups.${group}.servers`);
+        let serverChoosing = await getNestedValue(nestedServerChoosing);
 
         // If the server choosing is greater than the number of servers, reset it to 1
         if (serverChoosing >= Object.keys(servers).length) {
-            await setNestedValue(nested, 1);
+            await setNestedValue(nestedServerChoosing, 1);
         } else {
             // Increment the server choosing
-            await setNestedValue(nested, serverChoosing + 1);
+            await setNestedValue(nestedServerChoosing, serverChoosing + 1);
         }
 
         let nextServer = servers[serverChoosing];
@@ -116,10 +142,7 @@ const doFetch = async (group, method, path, init = null) =>
     if (init == null) init = defaultInit;
 
     try {
-        // Call the server
-        let response = await fetch(url, replaceToken(init, token));
-
-        return response;
+        return await fetch(url, replaceToken(init, token));
     } catch (err) {
         console.error('VBError: ' + err);
         return {
@@ -176,8 +199,6 @@ const connect = async (group, path, init = null) =>
 module.exports = {
     readConfig,
     writeConfig,
-    setNestedValue,
-    getNextServer,
     replaceToken,
     doFetch,
     get,

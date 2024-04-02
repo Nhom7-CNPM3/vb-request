@@ -1,6 +1,6 @@
 {
   "name": "vb-request",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "The distributed processing system evenly handles requests.",
   "main": "index.js",
   "scripts": {
