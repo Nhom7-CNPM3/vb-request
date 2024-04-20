@@ -142,7 +142,7 @@ const doFetch = async (group, method, path, init = null) =>
     if (init == null) init = defaultInit;
 
     try {
-        return await fetch(url, replaceToken(init, token));
+        return await fetch(url, init);
     } catch (err) {
         console.error('VBError: ' + err);
         return {
